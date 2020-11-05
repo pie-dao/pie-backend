@@ -12,6 +12,11 @@ export class Coin {
     })
     symbol: string;
 
+    @Column({
+        unique: true,
+    })
+    contractAddress: string;
+
     @Column()
     name: string;
 

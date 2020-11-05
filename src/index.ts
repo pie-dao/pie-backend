@@ -11,15 +11,12 @@ const app = express();
 //@ts-ignore
 app.get('/api', (req, res, next) => {
   res.status(200).json({
-    hello: 'World!',
+    stay: 'crusty!',
   });
 });
 
-
-
 app.get('/test', async (req, res) => {
   const coin = await RSI(4);
-
   res.status(200).json({
     coin
   });
