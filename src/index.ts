@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import * as express from 'express';
-import { connectDB, db } from './database'
-import {importCoinAndCandles} from './controllers/coinPopulator';
+import { connectDB } from './database'
+import { importCoinAndCandles } from './controllers/coinPopulator';
+import { RSI } from './controllers/taUtils';
 
 const app = express();
 
@@ -17,15 +18,10 @@ app.get('/api', (req, res, next) => {
 
 
 app.get('/test', async (req, res) => {
-  const { coinsRepo } = db.getRepos();
-  const dbRes = await coinsRepo.find({
-    where: [
-      { coingeckoId: "piedao-defi-smdddall-cap"},
-    ]
-  });
+  const coin = await RSI(4);
 
   res.status(200).json({
-    dbRes
+    coin
   });
 });
 

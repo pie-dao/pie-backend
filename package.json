@@ -16,6 +16,7 @@
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "pg": "^8.4.2",
+    "talib-binding": "^1.0.2",
     "typeorm": "^0.2.29"
   },
   "devDependencies": {
