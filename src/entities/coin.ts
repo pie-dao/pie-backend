@@ -14,6 +14,7 @@ export class Coin {
 
     @Column({
         unique: true,
+        nullable: true
     })
     contractAddress: string;
 

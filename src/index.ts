@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import * as express from 'express';
-import { connectDB } from './database'
+import { connectDB } from './database';
+import { setupScheduler } from './scheduler';
 import { importCoinAndCandles } from './controllers/coinPopulator';
 import { RSI } from './controllers/taUtils';
 
@@ -32,6 +33,7 @@ const startServer = async () => {
 };
 
 (async () => {
+  setupScheduler();
   await connectDB();
   await startServer();
 })();
