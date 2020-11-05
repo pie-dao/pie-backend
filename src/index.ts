@@ -1,9 +1,7 @@
 import 'dotenv/config';
 import * as express from 'express';
 import { connectDB, db } from './database'
-import { Coin } from './entities/coin';
-
-const CoinGecko = require('coingecko-api');
+import {importCoinAndCandles} from './controllers/coinPopulator';
 
 const app = express();
 
@@ -16,25 +14,22 @@ app.get('/api', (req, res, next) => {
   });
 });
 
-app.get('/populateCoin/:coingeckoId', async (req, res) => {
-  const CoinGeckoClient = new CoinGecko();
-  let resApi: any = await CoinGeckoClient.coins.fetch(req.params.coingeckoId, {});
-  const { coinsRepo } = db.getRepos();
-  
-  let coin = new Coin();
-  coin.symbol = resApi.data.symbol;
-  coin.name = resApi.data.name;
-  coin.coingeckoId = req.params.coingeckoId;
-  await coinsRepo.save(coin);
-  console.log("Coin has been saved");
 
-  const all = await coinsRepo.find();
+
+app.get('/test', async (req, res) => {
+  const { coinsRepo } = db.getRepos();
+  const dbRes = await coinsRepo.find({
+    where: [
+      { coingeckoId: "piedao-defi-smdddall-cap"},
+    ]
+  });
 
   res.status(200).json({
-    id: req.params.coingeckoId,
-    all 
+    dbRes
   });
 });
+
+app.get('/populateCoin/:coingeckoId', importCoinAndCandles);
 
 const port: Number = Number(process.env.PORT) || 3000;
 const startServer = async () => {
