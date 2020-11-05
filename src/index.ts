@@ -2,8 +2,7 @@ import 'dotenv/config';
 import * as express from 'express';
 import { connectDB } from './database';
 import { setupScheduler } from './scheduler';
-import { importCoinAndCandles } from './controllers/coinPopulator';
-import { RSI } from './controllers/taUtils';
+import { importCoinAndCandles, storePricesCoins } from './controllers/coinPopulator';
 
 const app = express();
 
@@ -16,12 +15,7 @@ app.get('/api', (req, res, next) => {
   });
 });
 
-app.get('/test', async (req, res) => {
-  const coin = await RSI(4);
-  res.status(200).json({
-    coin
-  });
-});
+app.get('/test', storePricesCoins);
 
 app.get('/populateCoin/:coingeckoId', importCoinAndCandles);
 

@@ -1,4 +1,7 @@
 const cron = require('node-cron');
+import { storePricesCoins } from './controllers/coinPopulator';
+
+const jobs : Array<any>= [];
 
 enum Every {
     second = "* * * * * *",
@@ -19,7 +22,6 @@ enum Every {
 }
 
 export function setupScheduler() {
-    cron.schedule(Every.minute, function() {
-        console.log('running a task every minute');
-    });
+    let job = cron.schedule(Every.hour, storePricesCoins);
+    jobs.push(job);
 }
