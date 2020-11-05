@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-import { storePricesCoins } from './controllers/coinPopulator';
+import { storePricesCoins, importCoinAndCandles } from './controllers/coinPopulator';
 
 const jobs : Array<any>= [];
 
@@ -24,4 +24,9 @@ enum Every {
 export function setupScheduler() {
     let job = cron.schedule(Every.hour, storePricesCoins);
     jobs.push(job);
+
+    job = cron.schedule(Every.day, importCoinAndCandles);
+    jobs.push(job);
+
+    
 }

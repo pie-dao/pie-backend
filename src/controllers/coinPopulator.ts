@@ -9,12 +9,11 @@ export async function importCoinAndCandles(req, res) {
         const CoinGeckoClient = new CoinGecko();
         const { candleRepo } = db.getRepos();
         const coingeckoId = req.params.coingeckoId;
-        let coin = await findOrInsert(coingeckoId);
-        
+        let coin = await findOrInsert(coingeckoId);  
         
         const apiRes = await CoinGeckoClient._request(`/coins/${coingeckoId}/ohlc`, {
             vs_currency: 'usd',
-            days: 365,
+            days: req.params.days || 1,
         });
         
         let candles;
@@ -43,11 +42,12 @@ export async function importCoinAndCandles(req, res) {
                 candleRepo.save(candles);
             }
         }
-        
-        console.log(candles)
-        res.status(200).json({
-            candles
-        });
+
+        if(res && res.status) {
+            res.status(200).json({
+                candles,
+            });
+        }
     } catch(e) {
         console.log(e, e.message);
     }
