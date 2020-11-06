@@ -27,6 +27,4 @@ export function setupScheduler() {
 
     job = cron.schedule(Every.day, importCoinAndCandles);
     jobs.push(job);
-
-    
 }

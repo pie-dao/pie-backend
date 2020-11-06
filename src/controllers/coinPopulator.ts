@@ -53,7 +53,7 @@ export async function importCoinAndCandles(req, res) {
     }
 }
 
-async function findOrInsert(_coingeckoId: string) {
+export async function findOrInsert(_coingeckoId: string) {
     const CoinGeckoClient = new CoinGecko();
     const { coinsRepo } = db.getRepos();
     const coingeckoId = _coingeckoId;

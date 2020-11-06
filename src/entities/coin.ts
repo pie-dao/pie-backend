@@ -27,9 +27,15 @@ export class Coin {
     })
     coingeckoId: string;
 
+    @Column({
+        default: false
+    })
+    isPie: boolean;
+
     @OneToMany(() => Candle, candle => candle.coin)
     candles: Candle[]
 
     @OneToMany(() => Price, price => price.coin)
     prices: Price[]
+    
 }
