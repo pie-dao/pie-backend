@@ -7,7 +7,6 @@
     "start": "node ./dist/index.js",
     "start:dev": "nodemon",
     "build": "tsc",
-    "clean:ts": "rimraf ./lib",
     "clean": "yarn clean:ts"
   },
   "keywords": [],
@@ -20,7 +19,6 @@
     "lodash": "^4.17.20",
     "node-cron": "^2.0.3",
     "pg": "^8.4.2",
-    "rimraf": "^3.0.2",
     "talib-binding": "^1.0.2",
     "typeorm": "^0.2.29"
   },
