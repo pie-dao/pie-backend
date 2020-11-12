@@ -35,7 +35,9 @@ export class Coin {
     @OneToMany(() => Candle, candle => candle.coin)
     candles: Candle[]
 
-    @OneToMany(() => Price, price => price.coin)
+    @OneToMany(() => Price, price => price.coin, {
+        eager: true
+    })
     prices: Price[]
     
 }

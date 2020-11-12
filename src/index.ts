@@ -1,29 +1,24 @@
-import { createPie } from './entities/Pie';
 import 'dotenv/config';
 import * as express from 'express';
-import { connectDB } from './database';
+import { connectDB, db } from './database';
 import { setupScheduler } from './scheduler';
 import { importCoinAndCandles } from './controllers/coinPopulator';
 
+import { router as pieRouter } from './controllers/pie/routes';
+
 const app = express();
 
+app.use('/pies', pieRouter);
 app.get('/populateCoin/:coingeckoId', importCoinAndCandles);
 
 app.get('/test', async (req, res) => {
 
-  let pie = await createPie([
-    {
-      percentage: 70,
-      coingeckoId: 'piedao-defi-large-cap'
-    },
-    {
-      percentage: 30,
-      coingeckoId: 'piedao-defi-small-cap'
-    },
-  ])
+  const { piesRepo } = db.getRepos();
+
+  let pies = await piesRepo.find();
 
   res.status(200).json({
-    pie
+    pies
   });
 });
 

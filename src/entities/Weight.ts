@@ -11,7 +11,9 @@ export class Weight {
     @Column({ type: "float"})
     percentage: number;
 
-    @OneToOne(() => Coin)
+    @OneToOne(() => Coin, {
+        eager: true
+    })
     @JoinColumn()
     coin: Coin;
 
