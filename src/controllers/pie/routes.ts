@@ -10,10 +10,14 @@ router.get('/', function (req, res) {
 
 router.get('/getAll', async function (req, res) {
     const { piesRepo } = db.getRepos();
-    let pies = await piesRepo.find();
+    let pies = _.filter(await piesRepo.find(), (o) => o.contains.length > 0);
 
-    let arr: any[] = _.filter(pies, (o) => o.contains.length > 0)
-    .map( p => {
+    // let navPerformance = [];
+    // for (let index = 0; index < pies.contains.length; index++) {
+    //     const weight = pies.contains[index];
+    // }
+
+    let arr: any[] = pies.map( p => {
         return {
             ...p,
             nav: p.getNav(),
