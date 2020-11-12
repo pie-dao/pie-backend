@@ -1,25 +1,18 @@
 {
   "compilerOptions": {
-    "target": "esnext",
     "module": "commonjs",
-    "sourceMap": true,
-    "outDir": "./dist",
-    "removeComments": true,
+    "lib": ["es2015"],
+    "target": "es6",
+    "outDir": "dist",
+    "strict": false,
     "moduleResolution": "node",
-    "noImplicitAny": false,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "noImplicitThis": true,
+    "downlevelIteration": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": false,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-
-    //add decorator support
-    "allowSyntheticDefaultImports": false,
     "emitDecoratorMetadata": true,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "sourceMap": true,
+    "noUnusedParameters": false,
+    "resolveJsonModule": true
   },
-  "include": ["./src/**/*.tsx", "./src/**/*.ts", "./*.ts"],
-  "exclude": ["node_modules"]
+  "include": ["./src/**/*.ts"]
 }

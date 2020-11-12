@@ -2,12 +2,13 @@
   "name": "pie-backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.ts",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "nodemon",
-    "start_dist": "node ./dist/index.js",
+    "start": "node ./dist/index.js",
     "start:dev": "nodemon",
-    "build": "tsc"
+    "build": "tsc",
+    "clean:ts": "rimraf ./lib",
+    "clean": "yarn clean:ts"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +20,7 @@
     "lodash": "^4.17.20",
     "node-cron": "^2.0.3",
     "pg": "^8.4.2",
+    "rimraf": "^3.0.2",
     "talib-binding": "^1.0.2",
     "typeorm": "^0.2.29"
   },
