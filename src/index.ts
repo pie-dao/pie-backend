@@ -1,15 +1,24 @@
 import 'dotenv/config';
 import * as express from 'express';
-import { connectDB } from './database'
+import { connectDB, db } from './database';
+import { setupScheduler } from './scheduler';
+import { importCoinAndCandles } from './controllers/coinPopulator';
+
+import { router as pieRouter } from './controllers/pie/routes';
 
 const app = express();
 
-//configure application routes
-//@GET - dummy api route
-//@ts-ignore
-app.get('/api', (req, res, next) => {
+app.use('/pies', pieRouter);
+app.get('/populateCoin/:coingeckoId', importCoinAndCandles);
+
+app.get('/test', async (req, res) => {
+
+  const { piesRepo } = db.getRepos();
+
+  let pies = await piesRepo.find();
+
   res.status(200).json({
-    hello: 'World!',
+    pies
   });
 });
 
@@ -21,6 +30,7 @@ const startServer = async () => {
 };
 
 (async () => {
+  setupScheduler();
   await connectDB();
   await startServer();
 })();
