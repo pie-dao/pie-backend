@@ -5,5 +5,5 @@ module.exports = {
     "port": 5432,
     "synchronize": true,
     "logging": true,
-    "entities": ["src/entities/**/*.ts", "build/entities/**/*.js"]
+    "entities": ["src/entities/**/*.ts", "dist/entities/**/*.js"]
 }
