@@ -1,10 +1,11 @@
 import 'dotenv/config';
+import * as path from 'path';
 import * as express from 'express';
 import { connectDB, db } from './database';
 import { setupScheduler } from './scheduler';
 import { importCoinAndCandles } from './controllers/coinPopulator';
-
 import { router as pieRouter } from './controllers/pie/routes';
+import { IndexCalculator } from './classes/IndexCalculator';
 
 const app = express();
 
@@ -33,4 +34,8 @@ const startServer = async () => {
   setupScheduler();
   await connectDB();
   await startServer();
+
+  let idx = new IndexCalculator();
+  await idx.importCSV(path.resolve(__dirname, 'data/play.csv'));
+  idx.compute();
 })();
