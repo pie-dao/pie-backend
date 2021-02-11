@@ -1,5 +1,4 @@
 import 'dotenv/config';
-import * as path from 'path';
 import * as express from 'express';
 import { connectDB, db } from './database';
 import { setupScheduler } from './scheduler';
@@ -36,6 +35,8 @@ const startServer = async () => {
   await startServer();
 
   let idx = new IndexCalculator();
-  await idx.importCSV(path.resolve(__dirname, 'data/play.csv'));
+  // await idx.importCSV(path.resolve(__dirname, 'data/play.csv'));
+  
+  await idx.pullData();
   idx.compute();
 })();
