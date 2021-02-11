@@ -1,6 +1,7 @@
 const csv = require('csv-parser')
 const fs = require('fs')
 const CoinGecko = require('coingecko-api');
+var { jStat } = require('jstat');
 import * as _ from 'lodash';
 
 const round = (num) => Math.round(num * 100) / 100;
@@ -35,30 +36,30 @@ export class IndexCalculator {
                 name: 'ENJ',
                 coingeckoId: 'enjincoin',
             },
-            {
-                name: 'RFOX',
-                coingeckoId: 'redfox-labs-2',
-            },
-            {
-                name: 'SAND',
-                coingeckoId: 'the-sandbox',
-            },
-            {
-                name: 'AXS',
-                coingeckoId: 'axie-infinity',
-            },
-            {
-                name: 'NFTX',
-                coingeckoId: 'nftx',
-            },
-            {
-                name: 'ATRI',
-                coingeckoId: 'atari',
-            },
-            {
-                name: 'GHST',
-                coingeckoId: 'aavegotchi',
-            },
+            // {
+            //     name: 'RFOX',
+            //     coingeckoId: 'redfox-labs-2',
+            // },
+            // {
+            //     name: 'SAND',
+            //     coingeckoId: 'the-sandbox',
+            // },
+            // {
+            //     name: 'AXS',
+            //     coingeckoId: 'axie-infinity',
+            // },
+            // {
+            //     name: 'NFTX',
+            //     coingeckoId: 'nftx',
+            // },
+            // {
+            //     name: 'ATRI',
+            //     coingeckoId: 'atari',
+            // },
+            // {
+            //     name: 'GHST',
+            //     coingeckoId: 'aavegotchi',
+            // },
             
         ]
 
@@ -71,8 +72,6 @@ export class IndexCalculator {
             })
             console.log('done');
         }
-
-        console.log('this.dataSet', this.dataSet)
     }
     
     async importCSV(path: string) {
@@ -155,10 +154,46 @@ export class IndexCalculator {
         });
     }
 
+    computeBacktesting() {
+        this.dataSet.forEach(el => {
+            
+            // let prices = el.data.prices.map( o => {
+            //     // o[0] Timestamp
+            //     // o[1] Value
+            //     return o[1];
+            // });
+
+
+            // o[0] Timestamp
+            // o[1] Value
+            // o[2] ln(price/prev prive)
+            for (let i = 0; i < el.data.prices.length; i++) {
+                const price = el.data.prices[i][1];
+
+                if( i === 0) {
+                    el.data.prices[i].push(0);
+                } else {
+                    let prePrice = el.data.prices[i-1][1]
+                    let ln = Math.log( price /  prePrice)
+                    el.data.prices[i].push( ln );
+                }
+            }
+        })
+
+        this.dataSet.forEach(el => {
+            let logs = el.data.prices.map( o => {
+                return o[2];
+            });
+            el.VARIANCE = jStat.variance(logs) * logs.length;
+            el.STDEV = Math.sqrt(el.VARIANCE)
+        })
+    }
+
     compute() {
         this.computeMCAP();
         this.computeWeights();
         this.computeAdjustedWeights();
+        this.computeBacktesting();
 
         let total = 0;
         this.dataSet.forEach(el => {
