@@ -15,6 +15,7 @@
   "dependencies": {
     "@types/express": "^4.17.8",
     "@types/node": "^14.14.6",
+    "bignumber.js": "^9.0.1",
     "coingecko-api": "^1.0.10",
     "csv-parser": "^3.0.0",
     "dotenv": "^8.2.0",

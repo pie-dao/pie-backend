@@ -5,13 +5,28 @@ var { jStat } = require('jstat');
 const path = require('path');
 import * as _ from 'lodash';
 
-const round = (num) => Math.round(num * 100) / 100;
+
+// if you need 3 digits, replace 1e2 with 1e3 etc.
+// or just copypaste this function to your code:
+const round = (num, digits=4, base = 10) => {
+    return +(Math.round(+(num + `e+${digits}`))  + `e-${digits}`);
+
+    // Method 1
+    // let scaling = 10 ** digits;
+    // return Math.round((num + Number.EPSILON) * scaling) / scaling;
+
+    //return num.toFixed(digits) * 1;
+    //return +num.toFixed(digits);
+    // var pow = Math.pow(base, digits);
+    // return Math.round(num*pow) / pow;
+}
 
 export class IndexCalculator {
 
     public dataSet: Array<any>;
     public cumulativeUnderlyingMCAP: number;
     private maxWeight: number;
+    private indexStartingNAV: number; // Calculated in USD
     private sentimentWeightInfluence: number;
     private marketWeightInfluence: number;
     private _api: any;
@@ -19,6 +34,7 @@ export class IndexCalculator {
     constructor() {
         this.dataSet = [];
         this.maxWeight = 0.20;
+        this.indexStartingNAV = 1;
         this.sentimentWeightInfluence = 0.2;
         this.marketWeightInfluence = 1 - this.sentimentWeightInfluence;
         this._api = new CoinGecko();
@@ -149,8 +165,15 @@ export class IndexCalculator {
 
     computeWeights() {
         this.dataSet.forEach(el => {
-            el.RATIO = round(el.AVG_MCAP / this.cumulativeUnderlyingMCAP);
+            el.RATIO = el.AVG_MCAP / this.cumulativeUnderlyingMCAP;
+            console.log(el.RATIO);
         });
+
+        let total = 0;
+        this.dataSet.forEach(el => {
+            total += this.getCorrectRatio(el);
+        });
+        console.log('TOTAL computeWeights', total);
     }
 
     computeAdjustedWeights() {
@@ -179,16 +202,28 @@ export class IndexCalculator {
                 el.adjustedRATIO = el.RATIO + el.addedRatio;
             }
         });
+
+        let total = 0;
+        this.dataSet.forEach(el => {
+            total += this.getCorrectRatio(el);
+        });
+        console.log('TOTAL computeAdjustedWeights', total);
     }
 
     getCorrectRatio(el) {
-        if(el.cappedRATIO) {
+        if(el.finalWEIGHT) {
+            return el.finalWEIGHT;
+        } else if(el.cappedRATIO) {
             return el.cappedRATIO;
         } else if ( el.adjustedRATIO ) {
             return el.adjustedRATIO;
         } else {
             return el.RATIO;
         }
+    }
+
+    getTokenLastPrice(el) {
+        return parseFloat( _.last(el.data.prices)[1] );
     }
 
     computeSentimentWeight() {
@@ -204,11 +239,16 @@ export class IndexCalculator {
 
         // Calculate OverAllWeight
         this.dataSet.forEach(el => {
-            el.sentimentRATIO = el.sentimentScore/total;
-            el.finalWEIGHT = ( this.getCorrectRatio(el) * this.marketWeightInfluence ) + (el.sentimentRATIO * this.sentimentWeightInfluence);
+            el.finalWEIGHT = round( ( this.getCorrectRatio(el) * this.marketWeightInfluence ) + (el.sentimentRATIO * this.sentimentWeightInfluence), 4);
         });
 
 
+    }
+
+    computeTokenNumbers() {
+        this.dataSet.forEach(el => {
+            el.tokenBalance = this.indexStartingNAV * this.getCorrectRatio(el) * this.getTokenLastPrice(el);
+        });
     }
 
     computeBacktesting() {
@@ -252,25 +292,25 @@ export class IndexCalculator {
         this.computeAdjustedWeights();
         this.computeBacktesting();
         this.computeSentimentWeight();
+        this.computeTokenNumbers();
 
         let total = 0;
         this.dataSet.forEach(el => {
-            if(el.ADJUSTED) {
-                total += el.adjustedRATIO;
-            } else {
-                total += el.cappedRATIO;
-            }
+            total += this.getCorrectRatio(el);
         });
+        console.log('TOTAL', total);
 
-        console.log('this.dataSet', this.dataSet)
+        
         // Check
         if(total < 0.99 || total > 1) {
-            console.log('this.dataSet', this.dataSet)
-            console.log('TOTAL', total);
+            //console.log('this.dataSet', this.dataSet)
+            //console.log('this.dataSet', this.dataSet)
         }
 
+        console.log('TOTAL', total);
+
         this.dataSet.forEach(el => {
-            console.log(`${el.name}: ${el.finalWEIGHT} %`)
+            console.log(`${el.name}: ${el.finalWEIGHT} / ${el.tokenBalance}`)
         });
     }
 
