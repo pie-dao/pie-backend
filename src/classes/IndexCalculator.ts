@@ -2,6 +2,7 @@ const csv = require('csv-parser')
 const fs = require('fs')
 const CoinGecko = require('coingecko-api');
 var { jStat } = require('jstat');
+const path = require('path');
 import * as _ from 'lodash';
 
 const round = (num) => Math.round(num * 100) / 100;
@@ -11,11 +12,15 @@ export class IndexCalculator {
     public dataSet: Array<any>;
     public cumulativeUnderlyingMCAP: number;
     private maxWeight: number;
+    private sentimentWeightInfluence: number;
+    private marketWeightInfluence: number;
     private _api: any;
 
     constructor() {
         this.dataSet = [];
         this.maxWeight = 0.20;
+        this.sentimentWeightInfluence = 0.2;
+        this.marketWeightInfluence = 1 - this.sentimentWeightInfluence;
         this._api = new CoinGecko();
     }
 
@@ -31,45 +36,67 @@ export class IndexCalculator {
             {
                 name: 'MANA',
                 coingeckoId: 'decentraland',
+                sentimentScore: 48
             },
             {
                 name: 'ENJ',
                 coingeckoId: 'enjincoin',
+                sentimentScore: 52
             },
-            // {
-            //     name: 'RFOX',
-            //     coingeckoId: 'redfox-labs-2',
-            // },
-            // {
-            //     name: 'SAND',
-            //     coingeckoId: 'the-sandbox',
-            // },
-            // {
-            //     name: 'AXS',
-            //     coingeckoId: 'axie-infinity',
-            // },
-            // {
-            //     name: 'NFTX',
-            //     coingeckoId: 'nftx',
-            // },
-            // {
-            //     name: 'ATRI',
-            //     coingeckoId: 'atari',
-            // },
-            // {
-            //     name: 'GHST',
-            //     coingeckoId: 'aavegotchi',
-            // },
+            {
+                name: 'RFOX',
+                coingeckoId: 'redfox-labs-2',
+                sentimentScore: 45
+            },
+            {
+                name: 'SAND',
+                coingeckoId: 'the-sandbox',
+                sentimentScore: 44
+            },
+            {
+                name: 'AXS',
+                coingeckoId: 'axie-infinity',
+                sentimentScore: 43
+            },
+            {
+                name: 'NFTX',
+                coingeckoId: 'nftx',
+                sentimentScore: 46
+            },
+            {
+                name: 'ATRI',
+                coingeckoId: 'atari',
+                sentimentScore: 41
+            },
+            {
+                name: 'GHST',
+                coingeckoId: 'aavegotchi',
+                sentimentScore: 48
+            },
             
         ]
 
         for (const token of tokens) {
             console.log(`Fetchin ${token.coingeckoId} ...`)
+
+            let jsonSnapshot = require(path.resolve(__dirname, `../data/coins/${token.coingeckoId}.json`));
+
+            if(jsonSnapshot) {
+                this.dataSet.push({
+                    ...token,
+                    data: jsonSnapshot
+                })
+                continue;
+            }
+
             let response: any = await this.fetchCoinData(token.coingeckoId);
             this.dataSet.push({
                 ...token,
                 data: response.data
             })
+
+            let data = JSON.stringify(response.data);
+            fs.writeFileSync(path.resolve(__dirname, `../data/coins/${token.coingeckoId}.json`), data);
             console.log('done');
         }
     }
@@ -154,6 +181,36 @@ export class IndexCalculator {
         });
     }
 
+    getCorrectRatio(el) {
+        if(el.cappedRATIO) {
+            return el.cappedRATIO;
+        } else if ( el.adjustedRATIO ) {
+            return el.adjustedRATIO;
+        } else {
+            return el.RATIO;
+        }
+    }
+
+    computeSentimentWeight() {
+        let total = 0;
+        this.dataSet.forEach(el => {
+            total += el.sentimentScore;
+        });
+
+        // Calculate Sentiment Weight
+        this.dataSet.forEach(el => {
+            el.sentimentRATIO = el.sentimentScore/total;
+        });
+
+        // Calculate OverAllWeight
+        this.dataSet.forEach(el => {
+            el.sentimentRATIO = el.sentimentScore/total;
+            el.finalWEIGHT = ( this.getCorrectRatio(el) * this.marketWeightInfluence ) + (el.sentimentRATIO * this.sentimentWeightInfluence);
+        });
+
+
+    }
+
     computeBacktesting() {
         this.dataSet.forEach(el => {
             
@@ -194,6 +251,7 @@ export class IndexCalculator {
         this.computeWeights();
         this.computeAdjustedWeights();
         this.computeBacktesting();
+        this.computeSentimentWeight();
 
         let total = 0;
         this.dataSet.forEach(el => {
@@ -210,6 +268,10 @@ export class IndexCalculator {
             console.log('this.dataSet', this.dataSet)
             console.log('TOTAL', total);
         }
+
+        this.dataSet.forEach(el => {
+            console.log(`${el.name}: ${el.finalWEIGHT} %`)
+        });
     }
 
 }
