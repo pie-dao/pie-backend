@@ -4,7 +4,9 @@ const CoinGecko = require('coingecko-api');
 var { jStat } = require('jstat');
 const path = require('path');
 import * as _ from 'lodash';
+import BigNumber from "bignumber.js";
 
+BigNumber.set({ DECIMAL_PLACES: 4, ROUNDING_MODE: 4 })
 
 // if you need 3 digits, replace 1e2 with 1e3 etc.
 // or just copypaste this function to your code:
@@ -43,6 +45,7 @@ export class IndexCalculator {
     async fetchCoinData(id) {
         return this._api.coins.fetchMarketChart(id, {
             days: 30,
+            interval: 'daily'
         });
     }
 
@@ -94,20 +97,23 @@ export class IndexCalculator {
 
         for (const token of tokens) {
             console.log(`Fetchin ${token.coingeckoId} ...`)
+            let jsonSnapshot;
+            let hasSnapshot = false;
 
-            let jsonSnapshot = require(path.resolve(__dirname, `../data/coins/${token.coingeckoId}.json`));
+            try {
+                jsonSnapshot = await require(path.resolve(__dirname, `../data/coins/${token.coingeckoId}.json`));
+                hasSnapshot = true;
+            } catch(e) {}
 
-            if(jsonSnapshot) {
-                this.dataSet.push({
-                    ...token,
-                    data: jsonSnapshot
-                })
+            if(hasSnapshot) {
+                this.dataSet.push(jsonSnapshot)
                 continue;
-            }
+            } 
 
             let response: any = await this.fetchCoinData(token.coingeckoId);
             this.dataSet.push({
                 ...token,
+                backtesting: {},
                 data: response.data
             })
 
@@ -165,15 +171,9 @@ export class IndexCalculator {
 
     computeWeights() {
         this.dataSet.forEach(el => {
-            el.RATIO = el.AVG_MCAP / this.cumulativeUnderlyingMCAP;
-            console.log(el.RATIO);
+            //Readeble: el.RATIO = el.AVG_MCAP / this.cumulativeUnderlyingMCAP;
+            el.RATIO =( (new BigNumber(el.AVG_MCAP)).dividedBy( new BigNumber(this.cumulativeUnderlyingMCAP)) ).toNumber();
         });
-
-        let total = 0;
-        this.dataSet.forEach(el => {
-            total += this.getCorrectRatio(el);
-        });
-        console.log('TOTAL computeWeights', total);
     }
 
     computeAdjustedWeights() {
@@ -282,22 +282,42 @@ export class IndexCalculator {
                 return o[2];
             });
             el.VARIANCE = jStat.variance(logs) * logs.length;
-            el.STDEV = Math.sqrt(el.VARIANCE)
+            el.STDEV = Math.sqrt(el.VARIANCE);
+            el.backtesting.returns = logs;
         })
+    }
+
+    computeCorrelation() {
+
+        for (let i = 0; i < this.dataSet.length; i++) {
+            const current = this.dataSet[i];
+            for (let k = 0; k < this.dataSet.length; k++) {
+                const next = this.dataSet[k];
+                let correlation = jStat.corrcoeff(current.backtesting.returns, next.backtesting.returns);
+                _.set(current.backtesting, `correlation.${next.name}`, correlation);
+            }
+        }
     }
 
     compute() {
         this.computeMCAP();
         this.computeWeights();
         this.computeAdjustedWeights();
-        this.computeBacktesting();
         this.computeSentimentWeight();
+
+        this.computeBacktesting();
+        this.computeCorrelation();
+
         this.computeTokenNumbers();
 
         let total = 0;
         this.dataSet.forEach(el => {
             total += this.getCorrectRatio(el);
+
+            let data = JSON.stringify(el);
+            fs.writeFileSync(path.resolve(__dirname, `../data/coins/${el.coingeckoId}.json`), data);
         });
+        
         console.log('TOTAL', total);
 
         
