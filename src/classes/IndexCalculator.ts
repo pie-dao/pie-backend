@@ -23,10 +23,24 @@ const round = (num, digits=4, base = 10) => {
     // return Math.round(num*pow) / pow;
 }
 
+const getDot = (arrA, arrB, row, col) => {
+    return arrA[row].map((val, i) => (val * arrB[i][col]))
+  .reduce((valA, valB) => valA + valB);
+}
+
+const multiplyMatricies = (a, b) => {
+    let matrixShape = new Array(a.length).fill(0)
+      .map(() => new Array(b[0].length).fill(0));
+        return matrixShape.map((row, i) =>
+          row.map((val, j) => getDot(a, b, i, j)));
+      }
+
 export class IndexCalculator {
 
     public dataSet: Array<any>;
     public cumulativeUnderlyingMCAP: number;
+    public VARIANCE: number;
+    public STDEV: number;
     private maxWeight: number;
     private indexStartingNAV: number; // Calculated in USD
     private sentimentWeightInfluence: number;
@@ -288,7 +302,6 @@ export class IndexCalculator {
     }
 
     computeCorrelation() {
-
         for (let i = 0; i < this.dataSet.length; i++) {
             const current = this.dataSet[i];
             for (let k = 0; k < this.dataSet.length; k++) {
@@ -299,6 +312,40 @@ export class IndexCalculator {
         }
     }
 
+    computeCovariance() {
+
+        let matrixC = [];
+        let matrixB = [];
+
+        for (let i = 0; i < this.dataSet.length; i++) {
+            const current = this.dataSet[i];
+            let arr = [];
+            for (let k = 0; k < this.dataSet.length; k++) {
+                const next = this.dataSet[k];
+                let covariance = jStat.covariance(current.backtesting.returns, next.backtesting.returns) * this.dataSet.length;
+                _.set(current.backtesting, `covariance.${next.name}`, covariance);
+                arr.push(covariance);
+            }
+            matrixB.push(arr)
+        }
+
+        
+        //Needs documentation, ask Gab
+        let weightsArray = this.dataSet.map( el => this.getCorrectRatio(el));
+        weightsArray.forEach(el => matrixC.push([el]));
+        let product = multiplyMatricies([ weightsArray ] , matrixB);
+        const pieVariance = multiplyMatricies(product, matrixC)[0][0];
+
+        console.log('V1', [ weightsArray ])
+        console.log('V2', matrixB)
+        console.log('V3', matrixC)
+        this.VARIANCE = pieVariance;
+        this.STDEV = Math.sqrt(pieVariance);
+
+        console.log("pieVariance:", this.VARIANCE);
+        console.log("STDEV:", this.STDEV);
+    }
+
     compute() {
         this.computeMCAP();
         this.computeWeights();
@@ -307,6 +354,7 @@ export class IndexCalculator {
 
         this.computeBacktesting();
         this.computeCorrelation();
+        this.computeCovariance();
 
         this.computeTokenNumbers();
 
@@ -317,7 +365,7 @@ export class IndexCalculator {
             let data = JSON.stringify(el);
             fs.writeFileSync(path.resolve(__dirname, `../data/coins/${el.coingeckoId}.json`), data);
         });
-        
+
         console.log('TOTAL', total);
 
         
