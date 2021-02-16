@@ -1,4 +1,3 @@
-const csv = require('csv-parser')
 const fs = require('fs')
 const CoinGecko = require('coingecko-api');
 var { jStat } = require('jstat');
@@ -51,7 +50,7 @@ export class IndexCalculator {
 
     constructor(name) {
         this.dataSet = [];
-        this.maxWeight = 0.20;
+        this.maxWeight = 0.2;
         this.name = name;
         this.performance = [];
         this.indexStartingNAV = 1;
@@ -160,7 +159,8 @@ export class IndexCalculator {
     computeWeights() {
         this.dataSet.forEach(el => {
             //Readeble: el.RATIO = el.AVG_MCAP / this.cumulativeUnderlyingMCAP;
-            el.RATIO =( (new BigNumber(el.AVG_MCAP)).dividedBy( new BigNumber(this.cumulativeUnderlyingMCAP)) ).toNumber();
+            el.originalRATIO =( (new BigNumber(el.AVG_MCAP)).dividedBy( new BigNumber(this.cumulativeUnderlyingMCAP)) ).toNumber();
+            el.RATIO = el.originalRATIO;
         });
     }
 
@@ -169,9 +169,10 @@ export class IndexCalculator {
         let totalLeftover = 0;
         let leftoverMCAP = 0;
         this.dataSet.forEach(el => {
-            if(el.RATIO > this.maxWeight) {
+            if(el.originalRATIO > this.maxWeight) {
                 el.cappedRATIO = this.maxWeight;
-                el.leftover = el.RATIO - this.maxWeight;
+                el.RATIO = this.maxWeight;
+                el.leftover = el.originalRATIO - this.maxWeight;
                 el.CAPPED = true;
                 el.ADJUSTED = false;
                 totalLeftover += el.leftover;
@@ -187,7 +188,8 @@ export class IndexCalculator {
                 el.relativeToLeftoverRATIO = el.AVG_MCAP / leftoverMCAP;
                 el.adjustedMarketCAP = el.relativeToLeftoverRATIO * totalLeftover * this.cumulativeUnderlyingMCAP;
                 el.addedRatio = el.adjustedMarketCAP / this.cumulativeUnderlyingMCAP;
-                el.adjustedRATIO = el.RATIO + el.addedRatio;
+                el.adjustedRATIO = el.originalRATIO + el.addedRatio;
+                el.RATIO = el.adjustedRATIO;
             }
         });
 
@@ -199,15 +201,7 @@ export class IndexCalculator {
     }
 
     getCorrectRatio(el) {
-        if(el.finalWEIGHT) {
-            return el.finalWEIGHT;
-        } else if(el.cappedRATIO) {
-            return el.cappedRATIO;
-        } else if ( el.adjustedRATIO ) {
-            return el.adjustedRATIO;
-        } else {
-            return el.RATIO;
-        }
+        return el.RATIO;
     }
 
     getTokenLastPrice(el) {
@@ -227,7 +221,13 @@ export class IndexCalculator {
 
         // Calculate OverAllWeight
         this.dataSet.forEach(el => {
-            el.finalWEIGHT = round( ( this.getCorrectRatio(el) * this.marketWeightInfluence ) + (el.sentimentRATIO * this.sentimentWeightInfluence), 4);
+            console.log(el.name)
+            console.log('cappedRATIO', el.cappedRATIO)
+            console.log('this.getCorrectRatio(el)', this.getCorrectRatio(el))
+            console.log('sentimentRATIO', el.sentimentRATIO)
+
+            el.finalWEIGHT = round( ( el.RATIO * this.marketWeightInfluence ) + (el.sentimentRATIO * this.sentimentWeightInfluence), 4);
+            el.RATIO = el.finalWEIGHT;
         });
 
 
@@ -324,12 +324,12 @@ export class IndexCalculator {
             for (let k = 0; k < this.dataSet.length; k++) {
                 const next = this.dataSet[k];
 
-                let x = next.finalWEIGHT * current.STDEV * next.STDEV * current.backtesting.correlation[next.name];
+                let x = next.RATIO * current.STDEV * next.STDEV * current.backtesting.correlation[next.name];
                 tempCalc += x;
             }
 
             current.marginalContribution = tempCalc * (1/this.STDEV);
-            current.totalContribution = current.marginalContribution * current.finalWEIGHT;
+            current.totalContribution = current.marginalContribution * current.RATIO;
             totalContributionGlobal += current.totalContribution;
         }
 
@@ -372,11 +372,9 @@ export class IndexCalculator {
             
             for (let k = 0; k < this.dataSet.length; k++) {
                 const coin = this.dataSet[k];
-
-                console.log('coin.finalWEIGHT', coin.finalWEIGHT)
-                console.log('coin.data.prices[i]', coin.data.prices[i][1])
-                tempCalc += coin.finalWEIGHT * coin.data.prices[i][1];
+                tempCalc += coin.RATIO * coin.data.prices[i][1];
             }
+
             this.performance.push([timestamp, tempCalc]);
         }
     }
@@ -386,11 +384,13 @@ export class IndexCalculator {
 
         let pricesAll = '';
         let mcapAll = '';
+        let performance = '';
         for (let i = 0; i < this.dataSet.length; i++) {
             const el = this.dataSet[i];
 
             pricesAll += el.name + ',';
             mcapAll += el.name + ',';
+
             let prices = el.data.prices.map(o => {
                 return o[1]
             })
@@ -400,12 +400,24 @@ export class IndexCalculator {
             })
 
             pricesAll += prices+'\n';
-            mcapAll += mcaps+'\n';
-            
+            mcapAll += mcaps+'\n';   
         }
 
         fs.writeFileSync(path.resolve(__dirname, `../data/csv/prices.csv`), pricesAll);
         fs.writeFileSync(path.resolve(__dirname, `../data/csv/mcaps.csv`), mcapAll);
+
+        performance += this.performance.map(o => {
+            return o[0]
+        }).join() 
+
+        performance += '\n';
+
+        performance += this.performance.map(o => {
+            return o[1]
+        }).join() 
+
+        fs.writeFileSync(path.resolve(__dirname, `../data/csv/${this.name}-performance.csv`), performance);
+
     }
 
     compute() {
@@ -443,7 +455,7 @@ export class IndexCalculator {
         console.log('TOTAL', total);
 
         this.dataSet.forEach(el => {
-            console.log(`${el.name}: ${el.finalWEIGHT} / ${el.tokenBalance}`)
+            console.log(`${el.name}: ${el.RATIO} / ${el.tokenBalance}`)
         });
 
         this.exportCSV();
