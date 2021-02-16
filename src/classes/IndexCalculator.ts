@@ -5,7 +5,7 @@ const path = require('path');
 import * as _ from 'lodash';
 import BigNumber from "bignumber.js";
 
-BigNumber.set({ DECIMAL_PLACES: 4, ROUNDING_MODE: 4 })
+BigNumber.set({ DECIMAL_PLACES: 10, ROUNDING_MODE: 4 })
 
 // if you need 3 digits, replace 1e2 with 1e3 etc.
 // or just copypaste this function to your code:
@@ -39,6 +39,7 @@ export class IndexCalculator {
     public dataSet: Array<any>;
     public performance: Array<any>;
     public name: string;
+    public SHARPERATIO: number;
     public cumulativeUnderlyingMCAP: number;
     public VARIANCE: number;
     public STDEV: number;
@@ -185,19 +186,24 @@ export class IndexCalculator {
 
         this.dataSet.forEach(el => {
             if(el.ADJUSTED) {
-                el.relativeToLeftoverRATIO = el.AVG_MCAP / leftoverMCAP;
-                el.adjustedMarketCAP = el.relativeToLeftoverRATIO * totalLeftover * this.cumulativeUnderlyingMCAP;
-                el.addedRatio = el.adjustedMarketCAP / this.cumulativeUnderlyingMCAP;
-                el.adjustedRATIO = el.originalRATIO + el.addedRatio;
-                el.RATIO = el.adjustedRATIO;
+                // el.relativeToLeftoverRATIO = el.AVG_MCAP / leftoverMCAP;
+                el.relativeToLeftoverRATIO = (new BigNumber(el.AVG_MCAP)).dividedBy( new BigNumber(leftoverMCAP) );
+
+
+                //el.adjustedMarketCAP = el.relativeToLeftoverRATIO * totalLeftover * this.cumulativeUnderlyingMCAP;
+                el.adjustedMarketCAP = el.relativeToLeftoverRATIO.multipliedBy( new BigNumber(totalLeftover) ).multipliedBy( new BigNumber(this.cumulativeUnderlyingMCAP) );
+
+                
+                //el.addedRatio = el.adjustedMarketCAP / this.cumulativeUnderlyingMCAP;
+                el.addedRatio = el.adjustedMarketCAP.dividedBy( new BigNumber(this.cumulativeUnderlyingMCAP) )
+                
+
+                //el.adjustedRATIO = el.originalRATIO + el.addedRatio;
+                el.adjustedRATIO = new BigNumber( el.originalRATIO ).plus(el.addedRatio);
+
+                el.RATIO = el.adjustedRATIO.toNumber();
             }
         });
-
-        let total = 0;
-        this.dataSet.forEach(el => {
-            total += this.getCorrectRatio(el);
-        });
-        console.log('TOTAL', total)
     }
 
     getCorrectRatio(el) {
@@ -224,7 +230,6 @@ export class IndexCalculator {
             el.finalWEIGHT = round( ( el.RATIO * this.marketWeightInfluence ) + (el.sentimentRATIO * this.sentimentWeightInfluence), 4);
             el.RATIO = el.finalWEIGHT;
         });
-
 
     }
 
@@ -331,7 +336,6 @@ export class IndexCalculator {
             totalContributionGlobal += current.totalContribution;
         }
 
-        console.log('totalContributionGlobal', totalContributionGlobal)
         //Then calculate MCTR based on the sum of the total contribution
         for (let i = 0; i < this.dataSet.length; i++) {
             const current = this.dataSet[i];
@@ -376,6 +380,10 @@ export class IndexCalculator {
 
             this.performance.push([timestamp, tempCalc]);
         }
+    }
+
+    computeSharpeRatio() {
+        this.SHARPERATIO = _.last(this.performance)[1] / this.STDEV;
     }
 
     async exportCSV() {
@@ -429,6 +437,7 @@ export class IndexCalculator {
         this.computeMCTR();
         this.computePerformance();
         this.computeTokenNumbers();
+        this.computeSharpeRatio();
 
         let total = 0;
         this.dataSet.forEach(el => {
@@ -443,17 +452,10 @@ export class IndexCalculator {
         let data = JSON.stringify(this);
         fs.writeFileSync(path.resolve(__dirname, `../data/pies/${this.name}.json`), data);
 
-        
-        // Check
-        if(total < 0.99 || total > 1) {
-            //console.log('this.dataSet', this.dataSet)
-            //console.log('this.dataSet', this.dataSet)
-        }
-
         console.log('TOTAL', total);
 
         this.dataSet.forEach(el => {
-            console.log(`${el.name}: ${el.RATIO} / ${el.tokenBalance}`)
+            console.log(`${el.name}: ${(el.RATIO*100).toFixed(2)}% / ${el.tokenBalance}`)
         });
 
         this.exportCSV();
