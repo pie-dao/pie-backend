@@ -197,7 +197,7 @@ export class IndexCalculator {
         this.dataSet.forEach(el => {
             total += this.getCorrectRatio(el);
         });
-        console.log('TOTAL computeAdjustedWeights', total);
+        console.log('TOTAL', total)
     }
 
     getCorrectRatio(el) {
@@ -221,11 +221,6 @@ export class IndexCalculator {
 
         // Calculate OverAllWeight
         this.dataSet.forEach(el => {
-            console.log(el.name)
-            console.log('cappedRATIO', el.cappedRATIO)
-            console.log('this.getCorrectRatio(el)', this.getCorrectRatio(el))
-            console.log('sentimentRATIO', el.sentimentRATIO)
-
             el.finalWEIGHT = round( ( el.RATIO * this.marketWeightInfluence ) + (el.sentimentRATIO * this.sentimentWeightInfluence), 4);
             el.RATIO = el.finalWEIGHT;
         });
@@ -269,7 +264,9 @@ export class IndexCalculator {
             let logs = el.data.prices.map( o => {
                 return o[2];
             });
-            el.VARIANCE = jStat.variance(logs) * logs.length;
+            
+            //Passing true indicates to compute the sample variance.
+            el.VARIANCE = jStat.variance(logs, true) * logs.length;
             el.STDEV = Math.sqrt(el.VARIANCE);
             el.backtesting.returns = logs;
         })
@@ -296,7 +293,7 @@ export class IndexCalculator {
             let arr = [];
             for (let k = 0; k < this.dataSet.length; k++) {
                 const next = this.dataSet[k];
-                let covariance = jStat.covariance(current.backtesting.returns, next.backtesting.returns) * this.dataSet.length;
+                let covariance = jStat.covariance(current.backtesting.returns, next.backtesting.returns) * current.backtesting.returns.length;
                 _.set(current.backtesting, `covariance.${next.name}`, covariance);
                 arr.push(covariance);
             }
@@ -304,8 +301,9 @@ export class IndexCalculator {
         }
         
         //Needs documentation, ask Gab
-        let weightsArray = this.dataSet.map( el => this.getCorrectRatio(el));
+        let weightsArray = this.dataSet.map( el => el.RATIO);
         weightsArray.forEach(el => matrixC.push([el]));
+
         let product = multiplyMatricies([ weightsArray ] , matrixB);
         const pieVariance = multiplyMatricies(product, matrixC)[0][0];
 
@@ -333,6 +331,7 @@ export class IndexCalculator {
             totalContributionGlobal += current.totalContribution;
         }
 
+        console.log('totalContributionGlobal', totalContributionGlobal)
         //Then calculate MCTR based on the sum of the total contribution
         for (let i = 0; i < this.dataSet.length; i++) {
             const current = this.dataSet[i];
@@ -358,7 +357,7 @@ export class IndexCalculator {
                 }
 
                 const timestampYesterday = el.data.prices[i-1][0];
-                const priceYesterday = el.data.prices[i-1][1];
+                const priceYesterday = el.data.prices[0][1];
                 const performance = (price - priceYesterday) / priceYesterday;
 
                 el.performance.push([timestampYesterday, performance])
@@ -372,13 +371,12 @@ export class IndexCalculator {
             
             for (let k = 0; k < this.dataSet.length; k++) {
                 const coin = this.dataSet[k];
-                tempCalc += coin.RATIO * coin.data.prices[i][1];
+                tempCalc += coin.RATIO * coin.performance[i][1];
             }
 
             this.performance.push([timestamp, tempCalc]);
         }
     }
-
 
     async exportCSV() {
 
