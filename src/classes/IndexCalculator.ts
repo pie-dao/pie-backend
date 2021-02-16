@@ -206,10 +206,6 @@ export class IndexCalculator {
         });
     }
 
-    getCorrectRatio(el) {
-        return el.RATIO;
-    }
-
     getTokenLastPrice(el) {
         return parseFloat( _.last(el.data.prices)[1] );
     }
@@ -235,7 +231,7 @@ export class IndexCalculator {
 
     computeTokenNumbers() {
         this.dataSet.forEach(el => {
-            el.tokenBalance = this.indexStartingNAV * this.getCorrectRatio(el) * this.getTokenLastPrice(el);
+            el.tokenBalance = this.indexStartingNAV * el.RATIO * this.getTokenLastPrice(el);
         });
     }
 
@@ -441,7 +437,7 @@ export class IndexCalculator {
 
         let total = 0;
         this.dataSet.forEach(el => {
-            total += this.getCorrectRatio(el);
+            total += el.RATIO;
 
             let data = JSON.stringify(el);
             fs.writeFileSync(path.resolve(__dirname, `../data/coins/${el.coingeckoId}.json`), data);
