@@ -38,6 +38,7 @@ const multiplyMatricies = (a, b) => {
 export class IndexCalculator {
 
     public dataSet: Array<any>;
+    public name: string;
     public cumulativeUnderlyingMCAP: number;
     public VARIANCE: number;
     public STDEV: number;
@@ -47,9 +48,10 @@ export class IndexCalculator {
     private marketWeightInfluence: number;
     private _api: any;
 
-    constructor() {
+    constructor(name) {
         this.dataSet = [];
         this.maxWeight = 0.20;
+        this.name = name;
         this.indexStartingNAV = 1;
         this.sentimentWeightInfluence = 0.2;
         this.marketWeightInfluence = 1 - this.sentimentWeightInfluence;
@@ -328,7 +330,6 @@ export class IndexCalculator {
             }
             matrixB.push(arr)
         }
-
         
         //Needs documentation, ask Gab
         let weightsArray = this.dataSet.map( el => this.getCorrectRatio(el));
@@ -336,14 +337,36 @@ export class IndexCalculator {
         let product = multiplyMatricies([ weightsArray ] , matrixB);
         const pieVariance = multiplyMatricies(product, matrixC)[0][0];
 
-        console.log('V1', [ weightsArray ])
-        console.log('V2', matrixB)
-        console.log('V3', matrixC)
         this.VARIANCE = pieVariance;
         this.STDEV = Math.sqrt(pieVariance);
+    }
 
-        console.log("pieVariance:", this.VARIANCE);
-        console.log("STDEV:", this.STDEV);
+    computeMCTR() {
+
+        let totalContributionGlobal = 0;
+
+        //Calculate first the single marginalContribution
+        for (let i = 0; i < this.dataSet.length; i++) {
+            const current = this.dataSet[i];
+            let tempCalc = 0;
+            
+            for (let k = 0; k < this.dataSet.length; k++) {
+                const next = this.dataSet[k];
+
+                let x = next.finalWEIGHT * current.STDEV * next.STDEV * current.backtesting.correlation[next.name];
+                tempCalc += x;
+            }
+
+            current.marginalContribution = tempCalc * (1/this.STDEV);
+            current.totalContribution = current.marginalContribution * current.finalWEIGHT;
+            totalContributionGlobal += current.totalContribution;
+        }
+
+        //Then calculate MCTR based on the sum of the total contribution
+        for (let i = 0; i < this.dataSet.length; i++) {
+            const current = this.dataSet[i];
+            current.MCTR = current.totalContribution / totalContributionGlobal;
+        }
     }
 
     compute() {
@@ -351,11 +374,10 @@ export class IndexCalculator {
         this.computeWeights();
         this.computeAdjustedWeights();
         this.computeSentimentWeight();
-
         this.computeBacktesting();
         this.computeCorrelation();
         this.computeCovariance();
-
+        this.computeMCTR();
         this.computeTokenNumbers();
 
         let total = 0;
@@ -367,6 +389,9 @@ export class IndexCalculator {
         });
 
         console.log('TOTAL', total);
+
+        let data = JSON.stringify(this);
+        fs.writeFileSync(path.resolve(__dirname, `../data/pies/${this.name}.json`), data);
 
         
         // Check

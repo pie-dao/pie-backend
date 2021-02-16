@@ -34,7 +34,7 @@ const startServer = async () => {
   await connectDB();
   await startServer();
 
-  let idx = new IndexCalculator();
+  let idx = new IndexCalculator('PLAY');
   // await idx.importCSV(path.resolve(__dirname, 'data/play.csv'));
   
   await idx.pullData();
