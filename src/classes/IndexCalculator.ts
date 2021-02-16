@@ -38,6 +38,7 @@ const multiplyMatricies = (a, b) => {
 export class IndexCalculator {
 
     public dataSet: Array<any>;
+    public performance: Array<any>;
     public name: string;
     public cumulativeUnderlyingMCAP: number;
     public VARIANCE: number;
@@ -52,6 +53,7 @@ export class IndexCalculator {
         this.dataSet = [];
         this.maxWeight = 0.20;
         this.name = name;
+        this.performance = [];
         this.indexStartingNAV = 1;
         this.sentimentWeightInfluence = 0.2;
         this.marketWeightInfluence = 1 - this.sentimentWeightInfluence;
@@ -137,36 +139,6 @@ export class IndexCalculator {
             fs.writeFileSync(path.resolve(__dirname, `../data/coins/${token.coingeckoId}.json`), data);
             console.log('done');
         }
-    }
-    
-    async importCSV(path: string) {
-        return new Promise((resolve, reject) => {
-            const rawData = [];
-            fs.createReadStream(path)
-            .pipe(csv())
-            .on('data', (data) => rawData.push(data))
-            .on('end', () => {
-            rawData.map( row => {
-                let purged = {
-                    name: row.Token,
-                    coingeckoId: row.TRUE,
-                    data: _.omit(row, ['Token', 'TRUE', 'Data refresh', '30days average MCAP', 'rolling'])
-                }
-
-                let parsedData = {} 
-                
-                _.forOwn(purged.data, (value, key) => {
-                    if(key !== '' && value !== '') {
-                        parsedData[key] = parseFloat(value);
-                    }
-                })
-
-                purged.data = parsedData;
-                this.dataSet.push(purged);
-            })
-            resolve(true);
-        });
-        })
     }
 
     computeMCAP() {
@@ -342,7 +314,6 @@ export class IndexCalculator {
     }
 
     computeMCTR() {
-
         let totalContributionGlobal = 0;
 
         //Calculate first the single marginalContribution
@@ -369,6 +340,74 @@ export class IndexCalculator {
         }
     }
 
+    computePerformance() {
+        //Calculate first the performance of the single coin
+        for (let i = 0; i < this.dataSet.length; i++) {
+            const el = this.dataSet[i];
+            el.performance = [];
+            
+            // o[0] Timestamp
+            // o[1] Value
+            // o[2] ln(price/prev prive)
+            for (let i = 0; i < el.data.prices.length; i++) {
+                const timestamp = el.data.prices[i][0];
+                const price = el.data.prices[i][1];
+                if(i === 0) {
+                    el.performance.push([timestamp, 0])
+                    continue;
+                }
+
+                const timestampYesterday = el.data.prices[i-1][0];
+                const priceYesterday = el.data.prices[i-1][1];
+                const performance = (price - priceYesterday) / priceYesterday;
+
+                el.performance.push([timestampYesterday, performance])
+            }
+        }
+
+        //Calculate the performance of the index
+        for (let i = 0; i < this.dataSet[0].data.prices.length; i++) {
+            const timestamp = this.dataSet[0].data.prices[i][0];
+            let tempCalc = 0;
+            
+            for (let k = 0; k < this.dataSet.length; k++) {
+                const coin = this.dataSet[k];
+
+                console.log('coin.finalWEIGHT', coin.finalWEIGHT)
+                console.log('coin.data.prices[i]', coin.data.prices[i][1])
+                tempCalc += coin.finalWEIGHT * coin.data.prices[i][1];
+            }
+            this.performance.push([timestamp, tempCalc]);
+        }
+    }
+
+
+    async exportCSV() {
+
+        let pricesAll = '';
+        let mcapAll = '';
+        for (let i = 0; i < this.dataSet.length; i++) {
+            const el = this.dataSet[i];
+
+            pricesAll += el.name + ',';
+            mcapAll += el.name + ',';
+            let prices = el.data.prices.map(o => {
+                return o[1]
+            })
+
+            let mcaps = el.data.market_caps.map(o => {
+                return o[1]
+            })
+
+            pricesAll += prices+'\n';
+            mcapAll += mcaps+'\n';
+            
+        }
+
+        fs.writeFileSync(path.resolve(__dirname, `../data/csv/prices.csv`), pricesAll);
+        fs.writeFileSync(path.resolve(__dirname, `../data/csv/mcaps.csv`), mcapAll);
+    }
+
     compute() {
         this.computeMCAP();
         this.computeWeights();
@@ -378,6 +417,7 @@ export class IndexCalculator {
         this.computeCorrelation();
         this.computeCovariance();
         this.computeMCTR();
+        this.computePerformance();
         this.computeTokenNumbers();
 
         let total = 0;
@@ -405,6 +445,8 @@ export class IndexCalculator {
         this.dataSet.forEach(el => {
             console.log(`${el.name}: ${el.finalWEIGHT} / ${el.tokenBalance}`)
         });
+
+        this.exportCSV();
     }
 
 }
