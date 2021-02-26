@@ -16,8 +16,11 @@ const round = (num, digits=4, base = 10) => {
     // let scaling = 10 ** digits;
     // return Math.round((num + Number.EPSILON) * scaling) / scaling;
 
+    // Method 2
     //return num.toFixed(digits) * 1;
     //return +num.toFixed(digits);
+
+    // Method 3
     // var pow = Math.pow(base, digits);
     // return Math.round(num*pow) / pow;
 }
