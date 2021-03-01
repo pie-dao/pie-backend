@@ -35,8 +35,6 @@ const startServer = async () => {
   await startServer();
 
   let idx = new IndexCalculator('PLAY');
-  // await idx.importCSV(path.resolve(__dirname, 'data/play.csv'));
-  
   await idx.pullData();
   idx.compute();
 })();

@@ -70,7 +70,7 @@ export class IndexCalculator {
         });
     }
 
-    async pullData() {
+    async pullData(useSnapshot=false) {
         
         let tokens = [
             {
@@ -122,8 +122,10 @@ export class IndexCalculator {
             let hasSnapshot = false;
 
             try {
-                jsonSnapshot = await require(path.resolve(__dirname, `../data/coins/${token.coingeckoId}.json`));
-                hasSnapshot = true;
+                if(useSnapshot) {
+                    jsonSnapshot = await require(path.resolve(__dirname, `../data/coins/${token.coingeckoId}.json`));
+                    hasSnapshot = true;
+                }
             } catch(e) {}
 
             if(hasSnapshot) {
@@ -449,7 +451,7 @@ export class IndexCalculator {
         console.log('TOTAL', total);
 
         let data = JSON.stringify(this);
-        fs.writeFileSync(path.resolve(__dirname, `../data/pies/${this.name}.json`), data);
+        fs.writeFileSync(path.resolve(__dirname, `../data/pies/${this.name}-${this.performance[0][0]}-${this.performance[this.performance.length-1][0]}.json`), data);
 
         console.log('TOTAL', total);
 
