@@ -37,6 +37,10 @@ const multiplyMatricies = (a, b) => {
           row.map((val, j) => getDot(a, b, i, j)));
       }
 
+const randomIntFromInterval = (min, max) => { 
+    return Math.random() * (max - min + 1) + min;
+}
+
 export class IndexCalculator {
 
     public dataSet: Array<any>;
@@ -70,52 +74,7 @@ export class IndexCalculator {
         });
     }
 
-    async pullData(useSnapshot=false) {
-        
-        let tokens = [
-            {
-                name: 'MANA',
-                coingeckoId: 'decentraland',
-                sentimentScore: 48
-            },
-            {
-                name: 'ENJ',
-                coingeckoId: 'enjincoin',
-                sentimentScore: 52
-            },
-            {
-                name: 'RFOX',
-                coingeckoId: 'redfox-labs-2',
-                sentimentScore: 45
-            },
-            {
-                name: 'SAND',
-                coingeckoId: 'the-sandbox',
-                sentimentScore: 44
-            },
-            {
-                name: 'AXS',
-                coingeckoId: 'axie-infinity',
-                sentimentScore: 43
-            },
-            {
-                name: 'NFTX',
-                coingeckoId: 'nftx',
-                sentimentScore: 46
-            },
-            {
-                name: 'ATRI',
-                coingeckoId: 'atari',
-                sentimentScore: 41
-            },
-            {
-                name: 'GHST',
-                coingeckoId: 'aavegotchi',
-                sentimentScore: 48
-            },
-            
-        ]
-
+    async pullData(useSnapshot=false, tokens) {
         for (const token of tokens) {
             console.log(`Fetchin ${token.coingeckoId} ...`)
             let jsonSnapshot;
@@ -129,7 +88,7 @@ export class IndexCalculator {
             } catch(e) {}
 
             if(hasSnapshot) {
-                this.dataSet.push(jsonSnapshot)
+                this.dataSet.push({...jsonSnapshot, ...token})
                 continue;
             } 
 
@@ -427,6 +386,30 @@ export class IndexCalculator {
 
     }
 
+    saveModel() {
+        let total = 0;
+        this.dataSet.forEach(el => {
+            total += el.RATIO;
+
+            let data = JSON.stringify(el);
+            fs.writeFileSync(path.resolve(__dirname, `../data/coins/${el.coingeckoId}.json`), data);
+        });
+
+        let data = JSON.stringify(this);
+        fs.writeFileSync(path.resolve(__dirname, `../data/pies/${this.name}-${this.performance[0][0]}-${this.performance[this.performance.length-1][0]}.json`), data);
+
+        console.log('TOTAL', total);
+
+        this.dataSet.forEach(el => {
+            console.log(`${el.name}: ${(el.RATIO*100).toFixed(2)}%`)
+        });
+
+        console.log('SharpeRatio', this.SHARPERATIO);
+        console.log('Performance', this.performance[this.performance.length-1][1]);
+
+        this.exportCSV();
+    }
+
     compute() {
         this.computeMCAP();
         this.computeWeights();
@@ -439,27 +422,58 @@ export class IndexCalculator {
         this.computePerformance();
         this.computeTokenNumbers();
         this.computeSharpeRatio();
+        this.saveModel();
+    }
 
-        let total = 0;
-        this.dataSet.forEach(el => {
-            total += el.RATIO;
+    optimizeSharpe() {
+        let SR = 0.8;
+        let bestComb;
+        //1.4824712878285808
+        for (let index = 0; index < 800000; index++) {
+            this.randomizeValues();
+            this.computeBacktesting();
+            this.computeCorrelation();
+            this.computeCovariance();
+            this.computeMCTR();
+            this.computePerformance();
+            this.computeTokenNumbers();
+            this.computeSharpeRatio();
+            if( this.SHARPERATIO > SR) {
+                SR = this.SHARPERATIO;
+                bestComb = [...this.dataSet];
+                console.log( `\n${index}: Prev; ${SR}  /   Now: ${this.SHARPERATIO}\n`);
+                bestComb.forEach(el => {
+                    console.log(`${el.name}: ${(el.RATIO)}`)
+                });
+            }
+        }
 
-            let data = JSON.stringify(el);
-            fs.writeFileSync(path.resolve(__dirname, `../data/coins/${el.coingeckoId}.json`), data);
+        console.log(`Best SR: ${SR}`)
+        bestComb.forEach(el => {
+            console.log(`${el.name}: ${(el.RATIO*100).toFixed(2)}%`)
         });
-
-        console.log('TOTAL', total);
 
         let data = JSON.stringify(this);
-        fs.writeFileSync(path.resolve(__dirname, `../data/pies/${this.name}-${this.performance[0][0]}-${this.performance[this.performance.length-1][0]}.json`), data);
+        fs.writeFileSync(path.resolve(__dirname, `../data/pies/${this.name}-${this.performance[0][0]}-${this.performance[this.performance.length-1][0]}-SR-Optimized.json`), data);
+    }
 
-        console.log('TOTAL', total);
+    randomizeValues() {
+        let sample = [];
+        let sample2 = [];
+        const reducer = (accumulator, currentValue) => accumulator + currentValue;
 
-        this.dataSet.forEach(el => {
-            console.log(`${el.name}: ${(el.RATIO*100).toFixed(2)}% / ${el.tokenBalance}`)
-        });
+        for (let index = 0; index < this.dataSet.length; index++) {
+            sample.push( randomIntFromInterval(0.02, 0.2) );
+        }
+        
+        let sum = sample.reduce(reducer);
+        sample.forEach( e => {
+            sample2.push( e/sum*100 )
+        })
 
-        this.exportCSV();
+        for (let index = 0; index < this.dataSet.length; index++) {
+            this.dataSet[index].RATIO = sample2[index] / 100;
+        }
     }
 
 }
